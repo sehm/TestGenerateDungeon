@@ -1,5 +1,8 @@
 ﻿
+#define _NO_DISP_ROAD_AREA_CUBE_   ///< 道エリアのキューブを表示しない.
+
 using UnityEngine;
+using System;
 using System.Collections;
 using Dungeion;
 
@@ -55,9 +58,15 @@ public class Main : MonoBehaviour
         switch(info.Type){
             case MapAreaType.None: col = Color.gray;  break;
             case MapAreaType.Room: col = Color.green; break;
-            case MapAreaType.Road: col = Color.white; break;
+            case MapAreaType.Road: col = Color.gray;  break;
         }
         go.renderer.material.color = col;
+
+#if _NO_DISP_ROAD_AREA_CUBE_
+        if( info.Type == MapAreaType.Road ){
+            go.renderer.enabled = false;
+        }
+#endif
 
         // つながっているエリア同士のとこに線を引く
         if( info.ConnectDir[(int)MapAreaTypeDir.Upper] != null ){
@@ -82,7 +91,7 @@ public class Main : MonoBehaviour
         trans.position = Vector3.zero;
 
         var lineRenderer = go.AddComponent<LineRenderer>();
-        lineRenderer.material = new Material (Shader.Find("Particles/Additive"));
+        lineRenderer.material = new Material (Shader.Find("Transparent/VertexLit"));
         lineRenderer.SetWidth(2,2);
 
         lineRenderer.SetVertexCount(2);
@@ -101,7 +110,8 @@ public class Main : MonoBehaviour
         cam.transform.position = new Vector3(GridWidth * DungeionMap.AreaRowNum / 2,
                                              -1f * (GridHeight * DungeionMap.AreaLineNum / 2f),
                                              -40f);
-        cam.orthographicSize = GridHeight * DungeionMap.AreaLineNum;
+
+        cam.orthographicSize = Mathf.Max(GridWidth * DungeionMap.AreaRowNum, GridHeight * DungeionMap.AreaLineNum);
     }
 
 

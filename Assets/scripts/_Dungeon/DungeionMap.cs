@@ -15,7 +15,7 @@ namespace Dungeion
     public class DungeionMap
     {
         public const int     AreaRowNum  = 6;
-        public const int     AreaLineNum = 6;
+        public const int     AreaLineNum = 4;
 
         public MapArea[,]    AreaList;
 
@@ -52,13 +52,18 @@ namespace Dungeion
         }
         private void CalcAreaType(int x,int y)
         {
-            int typeNum = Enum.GetNames(typeof(MapAreaType)).Length;
-
             var info = new MapArea();
-            info.Type = (MapAreaType)m_random.Next(typeNum); // TODO : 各種類ごとに確率いるかもね。
+            info.X = x;
+            info.Y = y;
+
+            // まず部屋を確定.
+            info.Type = m_random.Next(6) > 1 ? MapAreaType.None : MapAreaType.Room;
             this.AreaList[y,x] = info;
         }
 
+
+        #region エリアごとをつなぐ処理：一回目
+        /// エリアごとをつなぐ処理：一回目
         private void CalcAreaConnection(int x,int y)
         {
             MapArea info = this.AreaList[y,x];
@@ -66,48 +71,138 @@ namespace Dungeion
                 return;
             }
 
-            // Upper
-            MapArea connectArea;
+            // 上下
             if( m_random.Next(3) < 1
-                && y > 0 ){
-                connectArea = this.AreaList[y - 1,x];
-                if( info.ConnectDir[(int)MapAreaTypeDir.Upper] == null
-                    && connectArea.Type != MapAreaType.None ){
-                    info.ConnectDir[(int)MapAreaTypeDir.Upper]         = connectArea;
-                    connectArea.ConnectDir[(int)MapAreaTypeDir.Bottom] = info;
-                }
+                && y > 0
+                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Upper] == null ){
+                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Upper);
             }
-            // Bottom
             if( m_random.Next(3) < 1
-                && y < this.AreaList.GetLength(0) - 1 ){
-                connectArea = this.AreaList[y + 1,x];
-                if( info.ConnectDir[(int)MapAreaTypeDir.Bottom] == null
-                    && connectArea.Type != MapAreaType.None ){
-                    info.ConnectDir[(int)MapAreaTypeDir.Bottom]       = connectArea;
-                    connectArea.ConnectDir[(int)MapAreaTypeDir.Upper] = info;
-                }
+                && y < this.AreaList.GetLength(0) - 1
+                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Bottom] == null ){
+                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Bottom);
             }
-            // Left
+            // 左右
             if( m_random.Next(3) < 1
-                && x > 0 ){
-                connectArea = this.AreaList[y,x - 1];
-                if( info.ConnectDir[(int)MapAreaTypeDir.Left] == null
-                    && connectArea.Type != MapAreaType.None ){
-                    info.ConnectDir[(int)MapAreaTypeDir.Left]         = connectArea;
-                    connectArea.ConnectDir[(int)MapAreaTypeDir.Right] = info;
-                }
+                && x > 0
+                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Left] == null ){
+                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Left);
             }
-            // Right
             if( m_random.Next(3) < 1
-                && x < this.AreaList.GetLength(1) - 1 ){
-                connectArea = this.AreaList[y,x + 1];
-                if( info.ConnectDir[(int)MapAreaTypeDir.Right] == null
-                    && connectArea.Type != MapAreaType.None ){
-                    info.ConnectDir[(int)MapAreaTypeDir.Right]       = connectArea;
-                    connectArea.ConnectDir[(int)MapAreaTypeDir.Left] = info;
-                }
+                && x < this.AreaList.GetLength(1) - 1
+                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Right] == null ){
+                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Right);
             }
         }
+
+        /// 指定方向にエリアを検索し、部屋を見つけたらつなげる
+        private bool StraightRoadToHorizonal(MapArea fromArea, MapAreaTypeDir dir)
+        {
+            // 進行方向のサイドのエリアをチェック
+            if( this.CheckStraightSideArea(fromArea, dir) ){
+                return true;
+            }
+
+            // その先を検索
+            MapArea connectArea = GetNextMapArea(fromArea.X,fromArea.Y, dir);
+            if( connectArea == null ){
+                return false;
+            }
+            if( connectArea.Type == MapAreaType.None ){
+                // なにもない
+                if( this.StraightRoadToHorizonal(connectArea, dir) ){
+                    ConnectArea(fromArea,connectArea, dir);
+                    return true;
+                }else{
+                    return false;
+                }
+            }else{// if( connectArea.Type == MapAreaType.Room || connectArea.Type == MapAreaType.Road ){
+                // 部屋につながった
+                ConnectArea(fromArea,connectArea, dir);
+                return true;
+            }
+        }
+
+        private bool CheckStraightSideArea(MapArea fromArea,MapAreaTypeDir dir)
+        {
+            if( fromArea.Type != MapAreaType.None ){
+                return false;
+            }
+
+            // つながるとこがあるならつなげておしまい。
+            if( dir == MapAreaTypeDir.Upper || dir == MapAreaTypeDir.Bottom ){
+                // 進行方向が上下
+                if( CheckStraightSideAreaInternal(fromArea, MapAreaTypeDir.Left) ){
+                    return true;
+                }else if( CheckStraightSideAreaInternal(fromArea, MapAreaTypeDir.Right) ){
+                    return true;
+                }
+            }else{//if( dir == MapAreaTypeDir.Left || dir == MapAreaTypeDir.Right ){
+                // 進行方向が左右
+                if( CheckStraightSideAreaInternal(fromArea, MapAreaTypeDir.Upper) ){
+                    return true;
+                }else if( CheckStraightSideAreaInternal(fromArea, MapAreaTypeDir.Bottom) ){
+                    return true;
+                }
+            }
+            return false;
+        }
+        private bool CheckStraightSideAreaInternal(MapArea fromArea,MapAreaTypeDir dir)
+        {
+            MapArea connectArea = this.GetNextMapArea(fromArea.X,fromArea.Y, dir);
+            if( connectArea != null
+                //&& connectArea.Type != MapAreaType.None ){
+                && connectArea.Type == MapAreaType.Room ){
+                ConnectArea(fromArea,connectArea, dir);
+                return true;
+            }
+            return false;
+        }
+
+        private MapArea GetNextMapArea(int x,int y, MapAreaTypeDir dir)
+        {
+            // 上下方向
+            int next = 0;
+            if( dir == MapAreaTypeDir.Upper ){
+                next = y - 1;
+                if( next < 0 ){
+                    return null;// マップの端っこに到達
+                }
+                return this.AreaList[next,x];
+            }else if( dir == MapAreaTypeDir.Bottom ){
+                next = y + 1;
+                if( this.AreaList.GetLength(0) <= next ){
+                    return null;// マップの端っこに到達
+                }
+                return this.AreaList[next,x];
+            }
+
+            // 左右方向
+            if( dir == MapAreaTypeDir.Left ){
+                next = x - 1;
+                if( next < 0 ){
+                    return null;// マップの端っこに到達
+                }
+                return this.AreaList[y,next];
+            }else if( dir == MapAreaTypeDir.Right ){
+                next = x + 1;
+                if( this.AreaList.GetLength(1) <= next ){
+                    return null;// マップの端っこに到達
+                }
+                return this.AreaList[y,next];
+            }
+            return null;
+        }
+
+        private static void ConnectArea(MapArea from,MapArea to, MapAreaTypeDir dir)
+        {
+            from.ConnectDir[(int)dir] = to;
+            if( from.Type == MapAreaType.None ){
+                from.Type = MapAreaType.Road;
+            }
+        }
+        #endregion
+
 
         /// 到達できるエリア群ごとに ID をつけてく.
         private void CalcAreaBlockID(int x,int y)
@@ -160,6 +255,9 @@ namespace Dungeion
     }
     public class MapArea
     {
+        public int X;
+        public int Y;
+
         public MapAreaType  Type;
         public MapArea[]    ConnectDir = new MapArea[4];
         public int          BlockID = -1;

@@ -15,8 +15,8 @@ namespace Dungeion
     /// </summary>
     public class DungeionMap
     {
-        public const int     AreaRowNum  = 6;
-        public const int     AreaLineNum = 4;
+        public const int     AreaRowNum  = 8;//6;
+        public const int     AreaLineNum = 6;//4;
 
         public MapArea[,]    AreaList;
 
@@ -41,16 +41,17 @@ namespace Dungeion
                     this.CalcAreaConnection(x,y);
                 }
             }
-            m_nowBlockID = 0;
-            for(int y = 0; y < this.AreaList.GetLength(0); y++){
-                for(int x = 0; x < this.AreaList.GetLength(1); x++){
-                    this.CalcAreaBlockID(x,y);
-                }
-            }
-            // TODO : ブロックをつなげる
+
+            // ブロックを判定、 つながっていないブロックをつなげる
+            this.CalcBlockConnection();
+
+            // TODO : 階段の位置を確定
 
             Debug.Log("[DungeionMap] Generated!!");
         }
+
+
+        /// 指定グリッドのエリアの種類を確定
         private void CalcAreaType(int x,int y)
         {
             var info = new MapArea();
@@ -68,7 +69,7 @@ namespace Dungeion
         private void CalcAreaConnection(int x,int y)
         {
             MapArea info = this.AreaList[y,x];
-            if( info.Type == MapAreaType.None ){
+            if( info.Type != MapAreaType.Room ){
                 return;
             }
 
@@ -224,18 +225,62 @@ namespace Dungeion
         private static void ConnectArea(MapArea from,MapArea to, MapAreaTypeDir dir)
         {
             from.ConnectDir[(int)dir] = to;
+            to.ConnectDir[ (int)MapAreaReverseDirList[(int)dir] ] = from;
+
             if( from.Type == MapAreaType.None ){
                 from.Type = MapAreaType.Road;
             }
         }
+
         #endregion
 
+        #region ブロックをつなげる
+
+        /// ブロックがひとつになるまでつなげる
+        private void CalcBlockConnection()
+        {
+            // ひとつとなりで連結仕様としてもダメだったら、直線で連結をためす
+            m_blockConnectType = BlockConnectType.One;
+
+            this.MarkAreaBlockID();
+            while(m_nowBlockID > 1){
+                if( m_blockConnectType == BlockConnectType.One ){
+                    if( !this.CalcBlockConnectOne() ){
+                        m_blockConnectType = BlockConnectType.Line;
+                        continue;
+                    }
+                }else{// if( m_blockConnectType == BlockConnectType.Line ){
+                    if( !CalcBlockConnectLine() ){
+                        Debug.Log("[DungeionMap] Fatal Error!!");
+                        return;
+                    }
+                }
+
+                this.MarkAreaBlockID();
+            }
+        }
 
         /// 到達できるエリア群ごとに ID をつけてく.
+        private void MarkAreaBlockID()
+        {
+            for(int y = 0; y < this.AreaList.GetLength(0); y++){
+                for(int x = 0; x < this.AreaList.GetLength(1); x++){
+                    this.AreaList[y,x].BlockID = MapArea.BlockIDNone;
+                }
+            }
+            m_nowBlockID = 0;
+
+            for(int y = 0; y < this.AreaList.GetLength(0); y++){
+                for(int x = 0; x < this.AreaList.GetLength(1); x++){
+                    this.CalcAreaBlockID(x,y);
+                }
+            }
+            Debug.Log("MarkAreaBlockID() : now block num = " + m_nowBlockID.ToString());
+        }
         private void CalcAreaBlockID(int x,int y)
         {
             MapArea info = this.AreaList[y,x];
-            if( info.Type != MapAreaType.Room
+            if( info.Type == MapAreaType.None
                 || info.BlockID >= 0 ){  // すでにブロック判定済み
                 return;
             }
@@ -245,7 +290,8 @@ namespace Dungeion
         }
         private void CalcAreaBlockID(MapArea info)
         {
-            if( info.BlockID >= 0 ){  // すでにブロック判定済み
+            if( info.Type == MapAreaType.None
+                || info.BlockID >= 0 ){  // すでにブロック判定済み
                 return;
             }
             info.BlockID = m_nowBlockID;
@@ -259,8 +305,107 @@ namespace Dungeion
             }
         }
 
+        /// 部屋エリアについて、隣同士が別ブロックだったら連結する。  １回だけ
+        private bool CalcBlockConnectOne()
+        {
+            MapArea info;
+            for(int y = 0; y < this.AreaList.GetLength(0) - 1; y++){
+                for(int x = 0; x < this.AreaList.GetLength(1) - 1; x++){
+                    info = this.AreaList[y,x];
+                    if( info.Type == MapAreaType.None ){
+                        continue;
+                    }
 
-        private int m_nowBlockID = 0;
+                    // 右と下のエリアをチェック
+                    if( this.CalcBlockConnectOne(info, x + 1, y, MapAreaTypeDir.Right)
+                        || this.CalcBlockConnectOne(info, x, y + 1, MapAreaTypeDir.Bottom) ){
+                        return true;
+                    }
+                }
+            }
+            return false;// つなげることができなかった.
+        }
+        private bool CalcBlockConnectOne(MapArea from, int x,int y, MapAreaTypeDir dir)
+        {
+            MapArea checkArea = this.AreaList[y,x];
+            if( checkArea.Type != MapAreaType.None
+                && checkArea.BlockID != from.BlockID ){
+                // 違うブロックが隣あっているので、連結する。
+                Debug.Log("Connect Block : " + from.BlockID.ToString() + ", " + checkArea.BlockID.ToString());
+                ConnectArea(from, checkArea, dir);
+                return true;
+            }
+            return false;
+        }
+
+        /// 部屋エリアについて、直線で道を伸ばした先が別ブロックだったら連結する。  １回だけ
+        private bool CalcBlockConnectLine()
+        {
+            MapArea info;
+            for(int y = 0; y < this.AreaList.GetLength(0) - 1; y++){
+                for(int x = 0; x < this.AreaList.GetLength(1) - 1; x++){
+                    info = this.AreaList[y,x];
+                    if( info.Type == MapAreaType.None ){
+                        continue;
+                    }
+
+                    // 右と下のエリアをチェック
+                    if( this.CalcBlockConnectLine(info, x + 1, y, MapAreaTypeDir.Right)
+                        || this.CalcBlockConnectLine(info, x, y + 1, MapAreaTypeDir.Bottom) ){
+                        return true;
+                    }
+                }
+            }
+            return false;// つなげることができなかった.
+        }
+        private bool CalcBlockConnectLine(MapArea from, int x,int y, MapAreaTypeDir dir)
+        {
+            MapArea checkArea = this.AreaList[y,x];
+            if( checkArea.Type != MapAreaType.None ){
+                if( checkArea.BlockID == from.BlockID ){
+                    return false;// 同一ブロックにつながった
+                }else{
+                    // 違うブロックが隣あっているので、連結する。
+                    Debug.Log("Connect Block Line : " + string.Format("({0},{1})",from.X,from.Y) + " <=> " + string.Format("({0},{1})",checkArea.X,checkArea.Y));
+                    ConnectArea(from, checkArea, dir);
+                    return true;
+                }
+            }else{
+                // なにもないエリア：次のエリアへ
+                int nextX = x + (dir == MapAreaTypeDir.Right ? 1 : 0);
+                if( nextX >= this.AreaList.GetLength(1) ){
+                    return false;
+                }
+                int nextY = y + (dir == MapAreaTypeDir.Bottom ? 1 : 0);
+                if( nextY >= this.AreaList.GetLength(0) ){
+                    return false;
+                }
+
+                if( CalcBlockConnectLine(checkArea, nextX,nextY, dir) ){
+                    ConnectArea(from, checkArea, dir);
+                    return true;
+                }
+            }
+            return false;
+        }
+        #endregion
+
+
+        private static readonly MapAreaTypeDir[] MapAreaReverseDirList = {
+            MapAreaTypeDir.Bottom,
+            MapAreaTypeDir.Upper,
+            MapAreaTypeDir.Right,
+            MapAreaTypeDir.Left,
+        };
+
+        private enum BlockConnectType
+        {
+            One,
+            Line,
+        }
+        private BlockConnectType   m_blockConnectType;
+        private int                m_nowBlockID = 0;
+
         private System.Random   m_random = new System.Random();
     }
 
@@ -286,7 +431,8 @@ namespace Dungeion
         public int Y;
 
         public MapAreaType  Type;
-        public MapArea[]    ConnectDir = new MapArea[4];
-        public int          BlockID = -1;
+        public MapArea[]    ConnectDir  = new MapArea[4];
+        public int          BlockID     = BlockIDNone;
+        public const int    BlockIDNone = -1;
     }
 }

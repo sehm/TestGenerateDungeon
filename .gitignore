@@ -4,3 +4,5 @@
 *.sublime-*
 *.userprefs
 Library/*
+Tmp/*
+Temp/*

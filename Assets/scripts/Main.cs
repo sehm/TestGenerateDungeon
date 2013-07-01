@@ -115,6 +115,14 @@ public class Main : MonoBehaviour
     }
 
 
+
+    void Update()
+    {
+        int i = 0;
+        i++;
+    }
+
+
     private const float GridWidth  = 20f;
     private const float GridHeight = 20f;
 

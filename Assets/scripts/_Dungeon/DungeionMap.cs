@@ -2,6 +2,7 @@
 using UnityEngine;
 using System;
 using System.Collections;
+using System.Collections.Generic;
 
 /*
     アルゴリズムの考え方は  http://www5f.biglobe.ne.jp/~kenmo/program/dangeon2/dangeon2.html
@@ -71,32 +72,58 @@ namespace Dungeion
                 return;
             }
 
+            int connectNum = 0;
             // 上下
             if( m_random.Next(3) < 1
                 && y > 0
-                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Upper] == null ){
-                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Upper);
+                && info.ConnectDir[(int)MapAreaTypeDir.Upper] == null ){
+                if( this.CheckStraightRoad(info, MapAreaTypeDir.Upper) ){
+                    ++connectNum;
+                }
             }
             if( m_random.Next(3) < 1
                 && y < this.AreaList.GetLength(0) - 1
-                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Bottom] == null ){
-                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Bottom);
+                && info.ConnectDir[(int)MapAreaTypeDir.Bottom] == null ){
+                if( this.CheckStraightRoad(info, MapAreaTypeDir.Bottom) ){
+                    ++connectNum;
+                }
             }
             // 左右
             if( m_random.Next(3) < 1
                 && x > 0
-                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Left] == null ){
-                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Left);
+                && info.ConnectDir[(int)MapAreaTypeDir.Left] == null ){
+                if( this.CheckStraightRoad(info, MapAreaTypeDir.Left) ){
+                    ++connectNum;
+                }
             }
             if( m_random.Next(3) < 1
                 && x < this.AreaList.GetLength(1) - 1
-                && this.AreaList[y,x].ConnectDir[(int)MapAreaTypeDir.Right] == null ){
-                this.StraightRoadToHorizonal(info, MapAreaTypeDir.Right);
+                && info.ConnectDir[(int)MapAreaTypeDir.Right] == null ){
+                if( this.CheckStraightRoad(info, MapAreaTypeDir.Right) ){
+                    ++connectNum;
+                }
+            }
+
+            if( connectNum <= 0 ){
+                // 必ず一つはつなげる
+                Debug.Log("no connet (" + x.ToString() + ", " + y.ToString() + ")");
+                foreach(MapAreaTypeDir dir in Enum.GetValues(typeof(MapAreaTypeDir))){
+                    if( info.ConnectDir[(int)dir] != null ){
+                        return;
+                    }
+                }
+
+                foreach(MapAreaTypeDir dir in Enum.GetValues(typeof(MapAreaTypeDir))){
+                    if( info.ConnectDir[(int)dir] == null
+                        && this.CheckStraightRoad(info, dir) ){
+                        return;
+                    }
+                }
             }
         }
 
-        /// 指定方向にエリアを検索し、部屋を見つけたらつなげる
-        private bool StraightRoadToHorizonal(MapArea fromArea, MapAreaTypeDir dir)
+        /// 指定方向にまっすぐエリアを検索し、部屋を見つけたらつなげる
+        private bool CheckStraightRoad(MapArea fromArea, MapAreaTypeDir dir)
         {
             // 進行方向のサイドのエリアをチェック
             if( this.CheckStraightSideArea(fromArea, dir) ){
@@ -110,7 +137,7 @@ namespace Dungeion
             }
             if( connectArea.Type == MapAreaType.None ){
                 // なにもない
-                if( this.StraightRoadToHorizonal(connectArea, dir) ){
+                if( this.CheckStraightRoad(connectArea, dir) ){
                     ConnectArea(fromArea,connectArea, dir);
                     return true;
                 }else{

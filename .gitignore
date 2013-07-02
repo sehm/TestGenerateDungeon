@@ -1,0 +1,8 @@
+*.sln
+*.csproj
+*.pidb
+*.sublime-*
+*.userprefs
+Library/*
+Tmp/*
+Temp/*

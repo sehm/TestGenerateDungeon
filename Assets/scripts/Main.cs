@@ -10,20 +10,51 @@ using Dungeion;
 public class Main : MonoBehaviour
 {
 
-    void Start ()
+    void Start()
     {
         m_map = new DungeionMap();
-        m_map.Generate(8,6);
 
-        this.InitCamera();
-        this.InitGridDisp();
+        m_gridWidth  = "8";
+        m_gridHeight = "6";
     }
+    void OnGUI()
+    {
+        GUILayout.BeginHorizontal();{
+            GUILayout.Space(20);
+            GUILayout.Label("<< Grid Base Dungeon >>");
+        } GUILayout.EndHorizontal();
+
+        GUILayout.BeginHorizontal();{
+            GUILayout.Space(20);
+            GUILayout.BeginVertical();{
+                GUILayout.BeginHorizontal();{
+                    GUILayout.Label("Width  :   ");
+                    m_gridWidth  = GUILayout.TextField(m_gridWidth, GUILayout.MinWidth(100), GUILayout.MinHeight(40));
+                } GUILayout.EndHorizontal();
+                GUILayout.BeginHorizontal();{
+                    GUILayout.Label("Height :   ");
+                    m_gridHeight = GUILayout.TextField(m_gridHeight, GUILayout.MinWidth(100), GUILayout.MinHeight(40));
+                } GUILayout.EndHorizontal();
+            } GUILayout.EndVertical();
+
+            GUILayout.Space(40);
+            if( GUILayout.Button("Generate",GUILayout.MinWidth(100),GUILayout.MinHeight(80)) ){
+                m_map.Generate(int.Parse(m_gridWidth),int.Parse(m_gridHeight));
+                this.InitCamera();
+                this.InitGridDisp();
+            }
+        } GUILayout.EndHorizontal();
+    }
+
 
     /// 初期化：グリッド表示
     private void InitGridDisp()
     {
         m_dispGridList = new GameObject[m_map.AreaLineNum,m_map.AreaRowNum];
 
+        if( m_gridRoot != null ){
+            GameObject.Destroy(m_gridRoot);
+        }
         m_gridRoot = new GameObject("Grid");
         m_gridRoot.transform.position = Vector3.zero;
 
@@ -120,16 +151,20 @@ public class Main : MonoBehaviour
     }
 
 
-
+#if false
     void Update()
     {
         int i = 0;
         i++;
     }
+#endif
 
 
     private const float GridWidth  = 20f;
     private const float GridHeight = 20f;
+
+    private string           m_gridWidth;
+    private string           m_gridHeight;
 
     private DungeionMap      m_map;
     private GameObject[,]    m_dispGridList;

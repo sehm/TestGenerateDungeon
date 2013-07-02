@@ -15,18 +15,20 @@ namespace Dungeion
     /// </summary>
     public class DungeionMap
     {
-        public const int     AreaRowNum  = 8;//6;
-        public const int     AreaLineNum = 6;//4;
+        public int     AreaRowNum  { get; private set; }
+        public int     AreaLineNum { get; private set; }
 
         public MapArea[,]    AreaList;
 
 
         /// <summary>
-        /// ダンジョン生成
+        /// グリッドの幅と高さを指定してダンジョン生成
         /// </summary>
-        public void Generate()
+        public void Generate(int rowLength,int lineLength)
         {
-            this.AreaList = new MapArea[AreaLineNum,AreaRowNum];
+            this.AreaRowNum  = rowLength;
+            this.AreaLineNum = lineLength;
+            this.AreaList = new MapArea[lineLength,rowLength];
 
             // エリアの種類を決定
             for(int y = 0; y < this.AreaList.GetLength(0); y++){
@@ -46,6 +48,9 @@ namespace Dungeion
             this.CalcBlockConnection();
 
             // TODO : 階段の位置を確定
+            // アルゴリズムとしての候補は
+            //      ・部屋エリアについて、ランダムで開始エリア、終了エリアを決定
+            //      ・部屋エリアについて、ランダムで開始エリアを決定.  そこから一番遠い部屋を終了エリアとする。遠いかの判断はグリッドの直線距離でいいんでないかな.
 
             Debug.Log("[DungeionMap] Generated!!");
         }

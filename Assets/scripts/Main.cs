@@ -1,5 +1,6 @@
 ﻿
 #define _NO_DISP_ROAD_AREA_CUBE_   ///< 道エリアのキューブを表示しない.
+#define _NO_DISP_NONE_AREA_CUBE_   ///< 空エリアのキューブを表示しない.
 
 using UnityEngine;
 using System;
@@ -12,7 +13,7 @@ public class Main : MonoBehaviour
     void Start ()
     {
         m_map = new DungeionMap();
-        m_map.Generate();
+        m_map.Generate(8,6);
 
         this.InitCamera();
         this.InitGridDisp();
@@ -21,7 +22,7 @@ public class Main : MonoBehaviour
     /// 初期化：グリッド表示
     private void InitGridDisp()
     {
-        m_dispGridList = new GameObject[DungeionMap.AreaLineNum,DungeionMap.AreaRowNum];
+        m_dispGridList = new GameObject[m_map.AreaLineNum,m_map.AreaRowNum];
 
         m_gridRoot = new GameObject("Grid");
         m_gridRoot.transform.position = Vector3.zero;
@@ -67,6 +68,11 @@ public class Main : MonoBehaviour
             go.renderer.enabled = false;
         }
 #endif
+#if _NO_DISP_NONE_AREA_CUBE_
+        if( info.Type == MapAreaType.None ){
+            go.renderer.enabled = false;
+        }
+#endif
 
         // つながっているエリア同士のとこに線を引く
         if( info.ConnectDir[(int)MapAreaTypeDir.Upper] != null ){
@@ -107,11 +113,10 @@ public class Main : MonoBehaviour
     {
         var cam = Camera.mainCamera;
 
-        cam.transform.position = new Vector3(GridWidth * DungeionMap.AreaRowNum / 2,
-                                             -1f * (GridHeight * DungeionMap.AreaLineNum / 2f),
+        cam.transform.position = new Vector3(GridWidth * m_map.AreaRowNum / 2,
+                                             -1f * (GridHeight * m_map.AreaLineNum / 2f),
                                              -40f);
-
-        cam.orthographicSize = Mathf.Max(GridWidth * DungeionMap.AreaRowNum, GridHeight * DungeionMap.AreaLineNum);
+        cam.orthographicSize = Mathf.Max(GridWidth * m_map.AreaRowNum, GridHeight * m_map.AreaLineNum);
     }
 
 
